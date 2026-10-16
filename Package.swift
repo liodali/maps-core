@@ -1,22 +1,11 @@
 // swift-tools-version:6.1
 
-import Foundation
 import PackageDescription
 
-let djinniLocalRelative = "external/djinni"
-let manifestDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let djinniManifest =
-    manifestDir
-    .appendingPathComponent(djinniLocalRelative)
-    .appendingPathComponent("Package.swift")
-
-let djinniDependency: Package.Dependency =
-    FileManager.default
-        .fileExists(atPath: djinniManifest.path)
-    ? .package(name: "djinni", path: djinniLocalRelative)
-    : .package(
-        url: "https://github.com/UbiqueInnovation/djinni.git",
-        .upToNextMinor(from: "1.0.9"))
+// Keep dependency identity stable before and after submodule initialization.
+let djinniDependency: Package.Dependency = .package(
+    url: "https://github.com/UbiqueInnovation/djinni.git",
+    .upToNextMinor(from: "1.0.9"))
 
 let package = Package(
     name: "MapCore",
