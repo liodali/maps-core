@@ -91,8 +91,37 @@ public class TextureHolder: NSObject, @unchecked Sendable {
         let options: [MTKTextureLoader.Option: Any] = [
             MTKTextureLoader.Option.SRGB: false
         ]
-        let texture = try MetalContext.current.textureLoader.newTexture(data: data, options: options)
-        self.init(texture, textureUsableSize: textureUsableSize)
+        do {
+            let texture = try MetalContext.current.textureLoader.newTexture(data: data, options: options)
+            self.init(texture, textureUsableSize: textureUsableSize)
+        } catch {
+            #if canImport(AppKit) && !canImport(UIKit)
+                // MetalKit can reject indexed PNGs (including OSM tiles) on macOS.
+                // Redraw through an explicit RGBA bitmap rather than an NSImage
+                // drawing handler, which may preserve the unsupported image format.
+                guard let image = Self.makeCGImage(from: data),
+                    let context = CGContext(
+                        data: nil,
+                        width: image.width,
+                        height: image.height,
+                        bitsPerComponent: 8,
+                        bytesPerRow: image.width * 4,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                    )
+                else {
+                    throw error
+                }
+                context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                guard let rgbaImage = context.makeImage() else {
+                    throw error
+                }
+                let texture = try MetalContext.current.textureLoader.newTexture(cgImage: rgbaImage, options: options)
+                self.init(texture, textureUsableSize: textureUsableSize)
+            #else
+                throw error
+            #endif
+        }
     }
 
     public convenience init(premultipliedData data: Data, textureUsableSize: TextureUsableSize?) throws {
